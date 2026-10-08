@@ -418,44 +418,54 @@
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
-    // --- NIEUWE PDF FACTUUR FUNCTIE ---
+    // --- GEÜPDATE PDF FACTUUR FUNCTIE ---
     function genereerPDF() {
         if (laatstGefilterdeRitten.length === 0) {
-            alert("Er zijn geen ritten om een factuur van te maken.");
+            alert("Er zijn geen ritten om een overzicht van te maken.");
             return;
         }
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF('landscape');
 
-        // Haal de gekozen week op uit de filterbalk
+        // Bepaal de naam van de geselecteerde chauffeur
+        const chSelect = document.getElementById('filterChauffeur');
+        const chauffeurNaam = chSelect.value ? chSelect.options[chSelect.selectedIndex].text : 'Alle Chauffeurs';
+
+        // Bepaal de gekozen week
         const weekSelect = document.getElementById('filterWeek').value;
-        const weekTekst = weekSelect ? `Week ${weekSelect}` : 'Gefilterde Ritten';
+        const weekTekst = weekSelect ? weekSelect : 'Alle';
         
-        // Maak de datum mooi op (bijvoorbeeld: "9 oktober 2026")
-        const vandaagObj = new Date();
-        const datumMooi = vandaagObj.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+        // Bereken de start- en einddatum van de gefilterde lijst
+        const datums = laatstGefilterdeRitten.map(r => new Date(r.datum));
+        const minDatum = new Date(Math.min(...datums));
+        const maxDatum = new Date(Math.max(...datums));
+        
+        // Formatteer de datums als dd-mm-yyyy
+        const formatDatum = (d) => {
+            let dag = d.getDate().toString().padStart(2, '0');
+            let maand = (d.getMonth() + 1).toString().padStart(2, '0');
+            return `${dag}-${maand}-${d.getFullYear()}`;
+        };
+        const periodeTekst = `${formatDatum(minDatum)} t/m ${formatDatum(maxDatum)}`;
+
+        // Bereken het aantal gewerkte dagen (unieke datums tellen)
+        const uniekeDatums = new Set(laatstGefilterdeRitten.map(r => r.datum));
+        const aantalDagen = uniekeDatums.size;
 
         // Factuur Header
-        doc.setFontSize(16); 
+        doc.setFontSize(18); 
         doc.setTextColor(0, 86, 179); // DEA Blauw
+        doc.text(`Weekoverzicht week ${weekTekst} - ${chauffeurNaam}`, 14, 20);
         
-        // De nieuwe titel met week en datum er direct in verwerkt
-        doc.text(`Delivery Express Amsterdam - ${weekTekst} (${datumMooi})`, 14, 20);
+        doc.setFontSize(14);
+        doc.setTextColor(0, 0, 0);
+        doc.text("Delivery Express Amsterdam", 14, 28);
         
-        doc.setFontSize(12);
-        doc.setTextColor(50, 50, 50);
-        doc.text("Self-Billing Factuur / Urenspecificatie", 14, 28);
-        
-        // Informatie over de gekozen filters toevoegen
-        const chSelect = document.getElementById('filterChauffeur');
-        let startY = 36;
-        
-        if (chSelect.value) {
-            const gekozenChauffeur = chSelect.options[chSelect.selectedIndex].text;
-            doc.text(`Chauffeur: ${gekozenChauffeur}`, 14, startY);
-            startY += 8;
-        }
+        doc.setFontSize(11);
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Periode: ${periodeTekst}`, 14, 38);
+        doc.text(`Aantal gewerkte dagen: ${aantalDagen}`, 14, 44);
         
         // Data verzamelen voor de PDF tabel
         const getChauffeurNaam = (id) => alleChauffeurs.find(c => c.id == id)?.naam || 'Onbekend';
@@ -466,7 +476,10 @@
         
         let somUren = 0; let somLoon = 0; let somOmzet = 0;
 
-        laatstGefilterdeRitten.forEach(rit => {
+        // Sorteer ritten oplopend op datum voor een netter overzicht
+        const gesorteerdeRitten = [...laatstGefilterdeRitten].sort((a, b) => new Date(a.datum) - new Date(b.datum));
+
+        gesorteerdeRitten.forEach(rit => {
             const urenNum = rit.netto_gewerkte_uren ? parseFloat(rit.netto_gewerkte_uren) : 0;
             const loonNum = rit.totaal_loon_bedrag ? parseFloat(rit.totaal_loon_bedrag) : 0;
             const omzetNum = rit.totaal_facturatie_bedrag ? parseFloat(rit.totaal_facturatie_bedrag) : 0;
@@ -474,7 +487,7 @@
             somUren += urenNum; somLoon += loonNum; somOmzet += omzetNum;
 
             tableRows.push([
-                rit.datum,
+                formatDatum(new Date(rit.datum)),
                 rit.rit_omschrijving || '-',
                 getChauffeurNaam(rit.chauffeur_id),
                 getVrachtwagenKenteken(rit.vrachtwagen_id),
@@ -497,9 +510,9 @@
         doc.autoTable({
             head: [tableColumn],
             body: tableRows,
-            startY: startY + 6,
+            startY: 50,
             theme: 'grid',
-            headStyles: { fillColor: [0, 86, 179] }, // DEA blauwe koptekst
+            headStyles: { fillColor: [0, 86, 179] }, 
             footStyles: { fillColor: [233, 236, 239], textColor: [0,0,0], fontStyle: 'bold' },
             didParseCell: function(data) {
                 // Maak de allerlaatste rij (Totalen) dikgedrukt en lichtblauw
@@ -510,9 +523,9 @@
             }
         });
 
-        // Sla de PDF op 
-        const bestandsDatum = vandaagObj.toLocaleDateString('nl-NL').replace(/\//g, '-');
-        doc.save(`Factuur_DEA_${bestandsDatum}.pdf`);
+        // Genereer de bestandsnaam zonder spaties voor systemen
+        const bestandsNaam = `Weekoverzicht_week_${weekTekst}_${chauffeurNaam.replace(/\s+/g, '_')}.pdf`;
+        doc.save(bestandsNaam);
     }
 
     function openBewerkScherm(id) {
