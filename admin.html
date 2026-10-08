@@ -9,32 +9,39 @@
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; margin: 0; display: flex; justify-content: center; }
         
-        /* Inlog & Dashboard Containers */
         .login-container, .modal-content { background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-top: 50px; }
-        .dashboard-container { background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 100%; max-width: 1200px; overflow-x: auto; display: none; }
+        .dashboard-container { background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 100%; max-width: 1200px; overflow-x: auto; display: none; margin-bottom: 50px; }
         
-        /* Formulieren */
-        input { width: 100%; padding: 12px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        input, select { width: 100%; padding: 12px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         label { font-weight: bold; color: #555; }
         
-        /* Knoppen */
         .btn-blauw { width: 100%; padding: 15px; background-color: #0056b3; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; }
         .btn-blauw:hover { background-color: #004494; }
         .uitlog-btn { background-color: #6c757d; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .delete-btn { background-color: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; width: 100%; }
         .edit-btn { background-color: #ffc107; color: black; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
         
-        /* Header & Tabel */
-        .header-balk { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0056b3; padding-bottom: 10px; }
+        .header-balk { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 20px;}
         h2 { color: #333; margin: 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        
+        /* Filter Balk Styling */
+        .filter-balk { display: flex; gap: 15px; background-color: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
+        .filter-groep { flex: 1; min-width: 150px; }
+        .filter-groep select { margin-bottom: 0; padding: 10px; }
+        .filter-groep label { display: block; margin-bottom: 5px; font-size: 0.9em; }
+        .btn-reset { padding: 10px 15px; background-color: #6c757d; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; height: 42px; margin-top: 22px;}
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background-color: #0056b3; color: white; }
         tr:hover { background-color: #f9f9f9; }
         .bedrag { text-align: right; font-weight: bold; }
         .tijden-kolom { font-size: 0.9em; color: #555; }
         
-        /* Modal (Pop-up voor bewerken) */
+        /* Totaal Rij Styling */
+        .totaal-rij { background-color: #d1ecf1; border-top: 3px solid #17a2b8; font-weight: bold; }
+        .totaal-rij td { border-bottom: none; }
+        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: flex-start; z-index: 1000; overflow-y: auto; padding-top: 50px; }
         .modal-knoppen { display: flex; gap: 10px; margin-top: 10px; }
         .btn-grijs { width: 100%; padding: 15px; background-color: #ccc; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; }
@@ -42,7 +49,6 @@
 </head>
 <body>
 
-<!-- INLOG SCHERM -->
 <div id="loginScherm" class="login-container">
     <h2 style="text-align: center; border: none; margin-bottom: 20px;">Beheerder Inloggen</h2>
     <form id="loginForm">
@@ -54,12 +60,35 @@
     </form>
 </div>
 
-<!-- DASHBOARD SCHERM -->
 <div id="dashboardScherm" class="dashboard-container">
     <div class="header-balk">
         <h2>Ritten Overzicht</h2>
         <button id="logoutBtn" class="uitlog-btn">Uitloggen</button>
     </div>
+
+    <!-- FILTER BALK -->
+    <div class="filter-balk">
+        <div class="filter-groep">
+            <label>Chauffeur</label>
+            <select id="filterChauffeur" onchange="pasFiltersToe()">
+                <option value="">Alle Chauffeurs</option>
+            </select>
+        </div>
+        <div class="filter-groep">
+            <label>Periode (4 Weken)</label>
+            <select id="filterPeriode" onchange="pasFiltersToe()">
+                <option value="">Alle Periodes</option>
+            </select>
+        </div>
+        <div class="filter-groep">
+            <label>Specifieke Week</label>
+            <select id="filterWeek" onchange="pasFiltersToe()">
+                <option value="">Alle Weken</option>
+            </select>
+        </div>
+        <button class="btn-reset" onclick="resetFilters()">Wis Filters</button>
+    </div>
+
     <table>
         <thead>
             <tr>
@@ -77,29 +106,33 @@
         <tbody id="rittenTabel">
             <tr><td colspan="9" style="text-align: center;">Gegevens laden...</td></tr>
         </tbody>
+        <!-- TOTAAL RIJ -->
+        <tfoot>
+            <tr class="totaal-rij">
+                <td colspan="5" style="text-align: right;">Totalen (Gefilterd):</td>
+                <td id="totaalUren">0.00 uur</td>
+                <td class="bedrag" id="totaalLoon">€ 0.00</td>
+                <td class="bedrag" style="color: green;" id="totaalOmzet">€ 0.00</td>
+                <td></td>
+            </tr>
+        </tfoot>
     </table>
 </div>
 
-<!-- BEWERK POP-UP (MODAL) -->
 <div id="bewerkModal" class="modal">
     <div class="modal-content">
         <h2 style="margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">Rit Bewerken</h2>
         <form id="bewerkForm">
             <label>Datum</label>
             <input type="date" id="editDatum" required>
-            
             <label>Ritnummer</label>
             <input type="text" id="editRitnummer">
-            
             <label>Starttijd</label>
             <input type="time" id="editStarttijd" required>
-            
             <label>Eindtijd</label>
             <input type="time" id="editEindtijd" required>
-            
             <label>Pauze (in minuten)</label>
             <input type="number" id="editPauze" required>
-
             <div class="modal-knoppen">
                 <button type="button" class="btn-grijs" onclick="sluitBewerkScherm()">Annuleren</button>
                 <button type="submit" class="btn-blauw">Opslaan</button>
@@ -115,135 +148,5 @@
     // ------------------------------------------
 
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    let alleOpgeslagenRitten = []; // Slaat ritten tijdelijk op om ze snel te kunnen bewerken
-    let actieveBewerkId = null;
-
-    async function checkLogin() {
-        const { data: { session } } = await db.auth.getSession();
-        if (session) toonDashboard();
-    }
-
-    document.getElementById('loginForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        const { error } = await db.auth.signInWithPassword({ email, password });
-        if (error) alert("Inloggen mislukt: Controleer je gegevens.");
-        else { document.getElementById('loginForm').reset(); toonDashboard(); }
-    });
-
-    document.getElementById('logoutBtn').addEventListener('click', async function() {
-        await db.auth.signOut();
-        document.getElementById('dashboardScherm').style.display = 'none';
-        document.getElementById('loginScherm').style.display = 'block';
-    });
-
-    function toonDashboard() {
-        document.getElementById('loginScherm').style.display = 'none';
-        document.getElementById('dashboardScherm').style.display = 'block';
-        laadDashboard();
-    }
-
-    async function verwijderRit(id) {
-        if (!confirm("Weet je zeker dat je deze rit wilt wissen?")) return;
-        const { error } = await db.from('urenregistratie').delete().eq('id', id);
-        if (error) alert("Fout bij wissen: " + error.message);
-        else laadDashboard();
-    }
-
-    // BEWERK FUNCTIES
-    function openBewerkScherm(id) {
-        const rit = alleOpgeslagenRitten.find(r => r.id === id);
-        if (!rit) return;
-        
-        actieveBewerkId = id;
-        document.getElementById('editDatum').value = rit.datum;
-        document.getElementById('editRitnummer').value = rit.rit_omschrijving || '';
-        document.getElementById('editStarttijd').value = rit.starttijd;
-        document.getElementById('editEindtijd').value = rit.eindtijd;
-        document.getElementById('editPauze').value = rit.pauze_minuten;
-        
-        document.getElementById('bewerkModal').style.display = 'flex';
-    }
-
-    function sluitBewerkScherm() {
-        document.getElementById('bewerkModal').style.display = 'none';
-        actieveBewerkId = null;
-    }
-
-    document.getElementById('bewerkForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const updateData = {
-            datum: document.getElementById('editDatum').value,
-            rit_omschrijving: document.getElementById('editRitnummer').value,
-            starttijd: document.getElementById('editStarttijd').value,
-            eindtijd: document.getElementById('editEindtijd').value,
-            pauze_minuten: document.getElementById('editPauze').value
-        };
-
-        const { error } = await db.from('urenregistratie').update(updateData).eq('id', actieveBewerkId);
-        
-        if (error) {
-            alert("Fout bij opslaan: " + error.message);
-        } else {
-            sluitBewerkScherm();
-            laadDashboard(); // Herlaad de tabel met de nieuwe correcties
-        }
-    });
-
-    async function laadDashboard() {
-        const { data: chauffeurs } = await db.from('chauffeurs').select('*');
-        const { data: vrachtwagens } = await db.from('vrachtwagens').select('*');
-        const { data: ritten, error } = await db.from('urenregistratie').select('*').order('datum', { ascending: false });
-
-        const tabelBody = document.getElementById('rittenTabel');
-
-        if (error) {
-            tabelBody.innerHTML = `<tr><td colspan="9" style="color: red; text-align: center;">Fout bij laden: ${error.message}</td></tr>`;
-            return;
-        }
-
-        if (!ritten || ritten.length === 0) {
-            tabelBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Nog geen ritten gevonden in de database.</td></tr>';
-            return;
-        }
-
-        alleOpgeslagenRitten = ritten; // Bewaar voor de bewerk-functie
-        tabelBody.innerHTML = ''; 
-
-        const getChauffeurNaam = (id) => chauffeurs?.find(c => c.id == id)?.naam || 'Onbekend';
-        const getVrachtwagenKenteken = (id) => vrachtwagens?.find(v => v.id == id)?.kenteken || 'Onbekend';
-
-        ritten.forEach(rit => {
-            const tr = document.createElement('tr');
-            
-            const loon = rit.totaal_loon_bedrag !== null ? `€ ${rit.totaal_loon_bedrag.toFixed(2)}` : '€ 0.00';
-            const omzet = rit.totaal_facturatie_bedrag !== null ? `€ ${rit.totaal_facturatie_bedrag.toFixed(2)}` : '€ 0.00';
-            const uren = rit.netto_gewerkte_uren !== null ? rit.netto_gewerkte_uren : '0.00';
-            const ritnummer = rit.rit_omschrijving ? rit.rit_omschrijving : '-';
-
-            tr.innerHTML = `
-                <td><strong>${rit.datum}</strong><br><small>Week ${rit.weeknummer}</small></td>
-                <td><strong>${ritnummer}</strong></td>
-                <td>${getChauffeurNaam(rit.chauffeur_id)}</td>
-                <td>${getVrachtwagenKenteken(rit.vrachtwagen_id)}</td>
-                <td class="tijden-kolom">${rit.starttijd} - ${rit.eindtijd}<br>${rit.pauze_minuten} min pauze</td>
-                <td>${uren} uur</td>
-                <td class="bedrag">${loon}</td>
-                <td class="bedrag" style="color: green;">${omzet}</td>
-                <td>
-                    <button class="edit-btn" onclick="openBewerkScherm(${rit.id})">Bewerk</button>
-                    <button class="delete-btn" onclick="verwijderRit(${rit.id})">Wissen</button>
-                </td>
-            `;
-            
-            tabelBody.appendChild(tr);
-        });
-    }
-
-    checkLogin();
-</script>
-
-</body>
-</html>
+    
+    let alleOpges
