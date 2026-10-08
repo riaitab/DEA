@@ -191,26 +191,8 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_gv68Kwlf5w0P8bry7hMBaw_SrE_sAjS';
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Functie om het correcte ISO weeknummer te berekenen
-    function berekenWeeknummer(d) {
-        const target = new Date(d.valueOf());
-        const dayNr = (d.getDay() + 6) % 7;
-        target.setDate(target.getDate() - dayNr + 3);
-        const firstThursday = target.valueOf();
-        target.setMonth(0, 1);
-        if (target.getDay() !== 4) {
-            target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
-        }
-        return 1 + Math.ceil((firstThursday - target) / 604800000);
-    }
-
-    // Lokale datum van vandaag instellen in correct YYYY-MM-DD formaat
-    const nu = new Date();
-    const jaar = nu.getFullYear();
-    const maand = String(nu.getMonth() + 1).padStart(2, '0');
-    const dag = String(nu.getDate()).padStart(2, '0');
-    const vandaagString = `${jaar}-${maand}-${dag}`;
-    document.getElementById('datum').value = vandaagString;
+    // Eenvoudige, feilloze datum-instelling zoals in de originele werkende versie
+    document.getElementById('datum').value = new Date().toISOString().split('T')[0];
 
     async function laadDropdowns() {
         const { data: chauffeurs } = await db.from('chauffeurs').select('*').order('naam');
@@ -242,60 +224,40 @@
         e.preventDefault();
         
         const knop = document.getElementById('verzendKnop');
-        const succesDiv = document.getElementById('succesMelding');
-        
         knop.innerText = "Bezig met opslaan...";
         knop.disabled = true;
         knop.style.opacity = "0.7";
-        succesDiv.style.display = 'none';
 
-        // Veilige datum-uitlezing die gegarandeerd werkt ongeacht browser/notatie
-        const gekozenDatumStr = document.getElementById('datum').value;
-        let datumObj;
-
-        if (gekozenDatumStr.includes('-')) {
-            const delen = gekozenDatumStr.split('-');
-            // Controleer of het formaat YYYY-MM-DD is (4 cijfers vooraan) of DD-MM-YYYY
-            if (delen[0].length === 4) {
-                datumObj = new Date(parseInt(delen[0]), parseInt(delen[1]) - 1, parseInt(delen[2]));
-            } else {
-                datumObj = new Date(parseInt(delen[2]), parseInt(delen[1]) - 1, parseInt(delen[0]));
-            }
-        } else {
-            datumObj = new Date(gekozenDatumStr);
-        }
-
-        const berekendWeek = berekenWeeknummer(datumObj);
-
+        // We sturen de basisgegevens exact in zoals de oude code deed, 
+        // zonder ingewikkelde handmatige weeknummer-berekeningen die mislukten.
         const ritGegevens = {
-            datum: gekozenDatumStr,
-            weeknummer: parseInt(berekendWeek), // Wordt nu altijd netjes als getal meegestuurd
+            datum: document.getElementById('datum').value,
             rit_omschrijving: document.getElementById('ritnummer').value,
-            chauffeur_id: parseInt(document.getElementById('chauffeur').value),
-            vrachtwagen_id: parseInt(document.getElementById('vrachtwagen').value),
+            chauffeur_id: document.getElementById('chauffeur').value,
+            vrachtwagen_id: document.getElementById('vrachtwagen').value,
             starttijd: document.getElementById('starttijd').value,
             eindtijd: document.getElementById('eindtijd').value,
-            pauze_minuten: parseInt(document.getElementById('pauze').value)
+            pauze_minuten: document.getElementById('pauze').value
         };
 
         const { error } = await db.from('urenregistratie').insert([ritGegevens]);
 
         if (error) {
-            alert("Fout bij opslaan in database:\n" + error.message);
+            alert("Er is iets misgegaan: " + error.message);
             knop.innerText = "Rit Opslaan";
             knop.disabled = false;
             knop.style.opacity = "1";
         } else {
-            succesDiv.style.display = 'block';
+            document.getElementById('succesMelding').style.display = 'block';
             document.getElementById('urenForm').reset();
-            document.getElementById('datum').value = vandaagString;
+            document.getElementById('datum').value = new Date().toISOString().split('T')[0];
             
             knop.innerText = "Rit Opslaan";
             knop.disabled = false;
             knop.style.opacity = "1";
             
             setTimeout(() => {
-                succesDiv.style.display = 'none';
+                document.getElementById('succesMelding').style.display = 'none';
             }, 5000);
             
             window.scrollTo({ top: 0, behavior: 'smooth' });
