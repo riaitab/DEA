@@ -204,7 +204,7 @@
         return 1 + Math.ceil((firstThursday - target) / 604800000);
     }
 
-    // Lokale datum van vandaag instellen
+    // Lokale datum van vandaag instellen in correct YYYY-MM-DD formaat
     const nu = new Date();
     const jaar = nu.getFullYear();
     const maand = String(nu.getMonth() + 1).padStart(2, '0');
@@ -249,22 +249,27 @@
         knop.style.opacity = "0.7";
         succesDiv.style.display = 'none';
 
-        // Lees de datum correct uit en bereken het weeknummer
+        // Veilige datum-uitlezing die gegarandeerd werkt ongeacht browser/notatie
         const gekozenDatumStr = document.getElementById('datum').value;
-        const delen = gekozenDatumStr.split('-');
-        let berekendWeek = 1;
+        let datumObj;
 
-        if (delen.length === 3) {
-            const j = parseInt(delen[0]);
-            const m = parseInt(delen[1]) - 1;
-            const d = parseInt(delen[2]);
-            const datumObj = new Date(j, m, d);
-            berekendWeek = berekenWeeknummer(datumObj);
+        if (gekozenDatumStr.includes('-')) {
+            const delen = gekozenDatumStr.split('-');
+            // Controleer of het formaat YYYY-MM-DD is (4 cijfers vooraan) of DD-MM-YYYY
+            if (delen[0].length === 4) {
+                datumObj = new Date(parseInt(delen[0]), parseInt(delen[1]) - 1, parseInt(delen[2]));
+            } else {
+                datumObj = new Date(parseInt(delen[2]), parseInt(delen[1]) - 1, parseInt(delen[0]));
+            }
+        } else {
+            datumObj = new Date(gekozenDatumStr);
         }
+
+        const berekendWeek = berekenWeeknummer(datumObj);
 
         const ritGegevens = {
             datum: gekozenDatumStr,
-            weeknummer: parseInt(berekendWeek), // Wordt nu foutloos meegestuurd
+            weeknummer: parseInt(berekendWeek), // Wordt nu altijd netjes als getal meegestuurd
             rit_omschrijving: document.getElementById('ritnummer').value,
             chauffeur_id: parseInt(document.getElementById('chauffeur').value),
             vrachtwagen_id: parseInt(document.getElementById('vrachtwagen').value),
