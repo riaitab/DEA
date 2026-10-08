@@ -53,7 +53,7 @@
         }
 
         .header h1 {
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             color: var(--primary-color);
             margin-bottom: 5px;
         }
@@ -191,7 +191,7 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_gv68Kwlf5w0P8bry7hMBaw_SrE_sAjS';
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Hulpfunctie om het juiste ISO weeknummer te berekenen op basis van de datum
+    // Functie om het ISO weeknummer te berekenen
     function berekenWeeknummer(d) {
         const target = new Date(d.valueOf());
         const dayNr = (d.getDay() + 6) % 7;
@@ -204,9 +204,8 @@
         return 1 + Math.ceil((firstThursday - target) / 604800000);
     }
 
-    // Datum van vandaag invullen
-    const vandaag = new Date();
-    document.getElementById('datum').value = vandaag.toISOString().split('T')[0];
+    // Datum van vandaag instellen
+    document.getElementById('datum').value = new Date().toISOString().split('T')[0];
 
     async function laadDropdowns() {
         const { data: chauffeurs } = await db.from('chauffeurs').select('*').order('naam');
@@ -243,12 +242,11 @@
         knop.style.opacity = "0.7";
 
         const gekozenDatumStr = document.getElementById('datum').value;
-        const gekozenDatumObj = new Date(gekozenDatumStr);
-        const berekendWeek = berekenWeeknummer(gekozenDatumObj);
+        const berekendWeek = berekenWeeknummer(new Date(gekozenDatumStr));
 
         const ritGegevens = {
             datum: gekozenDatumStr,
-            weeknummer: berekendWeek, // <-- Dit lost de foutmelding direct op!
+            weeknummer: berekendWeek, // Wordt nu correct meegestuurd
             rit_omschrijving: document.getElementById('ritnummer').value,
             chauffeur_id: document.getElementById('chauffeur').value,
             vrachtwagen_id: document.getElementById('vrachtwagen').value,
