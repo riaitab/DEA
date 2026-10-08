@@ -20,15 +20,12 @@
         input, select { width: 100%; padding: 12px; margin-top: 5px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         label { font-weight: bold; color: #555; }
         
-        /* Knoppen & Tabs */
         .btn-blauw { width: 100%; padding: 15px; background-color: #0056b3; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; }
         .btn-blauw:hover { background-color: #004494; }
         .uitlog-btn { background-color: #6c757d; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
         .delete-btn { background-color: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 5px; }
         .edit-btn { background-color: #ffc107; color: black; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
         .btn-groen { background-color: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; height: 42px; margin-top: 22px; }
-        
-        /* Nieuwe rode PDF knop */
         .btn-rood { background-color: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; height: 42px; margin-top: 22px; }
         .btn-rood:hover { background-color: #c82333; }
         
@@ -429,12 +426,22 @@
         }
 
         const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('landscape'); // We gebruiken liggend papier, zodat de tabel netjes past
+        const doc = new jsPDF('landscape');
+
+        // Haal de gekozen week op uit de filterbalk
+        const weekSelect = document.getElementById('filterWeek').value;
+        const weekTekst = weekSelect ? `Week ${weekSelect}` : 'Gefilterde Ritten';
+        
+        // Maak de datum mooi op (bijvoorbeeld: "9 oktober 2026")
+        const vandaagObj = new Date();
+        const datumMooi = vandaagObj.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
 
         // Factuur Header
-        doc.setFontSize(18);
+        doc.setFontSize(16); 
         doc.setTextColor(0, 86, 179); // DEA Blauw
-        doc.text("Delivery Express Amsterdam (DEA)", 14, 20);
+        
+        // De nieuwe titel met week en datum er direct in verwerkt
+        doc.text(`Delivery Express Amsterdam - ${weekTekst} (${datumMooi})`, 14, 20);
         
         doc.setFontSize(12);
         doc.setTextColor(50, 50, 50);
@@ -449,9 +456,6 @@
             doc.text(`Chauffeur: ${gekozenChauffeur}`, 14, startY);
             startY += 8;
         }
-        
-        const vandaag = new Date().toLocaleDateString('nl-NL');
-        doc.text(`Aanmaakdatum: ${vandaag}`, 14, startY);
         
         // Data verzamelen voor de PDF tabel
         const getChauffeurNaam = (id) => alleChauffeurs.find(c => c.id == id)?.naam || 'Onbekend';
@@ -506,8 +510,9 @@
             }
         });
 
-        // Sla de PDF op met een dynamische naam
-        doc.save(`Factuur_DEA_${vandaag.replace(/\//g, '-')}.pdf`);
+        // Sla de PDF op 
+        const bestandsDatum = vandaagObj.toLocaleDateString('nl-NL').replace(/\//g, '-');
+        doc.save(`Factuur_DEA_${bestandsDatum}.pdf`);
     }
 
     function openBewerkScherm(id) {
