@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beheerders Dashboard - DEA</title>
+    <!-- Supabase inladen -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background-color: #f4f4f9; 
+            padding: 20px; 
+            margin: 0;
+        }
+        .container { 
+            background-color: white; 
+            padding: 25px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            overflow-x: auto; 
+        }
+        h2 { 
+            color: #333; 
+            margin-top: 0; 
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 10px;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px; 
+        }
+        th, td { 
+            padding: 12px; 
+            text-align: left; 
+            border-bottom: 1px solid #ddd; 
+        }
+        th { 
+            background-color: #0056b3; 
+            color: white; 
+        }
+        tr:hover { 
+            background-color: #f9f9f9; 
+        }
+        .bedrag { 
+            text-align: right; 
+            font-weight: bold; 
+        }
+        .tijden-kolom {
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Ritten Overzicht (Beheer)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Datum</th>
+                <th>Chauffeur</th>
+                <th>Vrachtwagen</th>
+                <th>Tijden & Pauze</th>
+                <th>Netto Uren</th>
+                <th class="bedrag">Loonkosten</th>
+                <th class="bedrag">Omzet (Facturatie)</th>
+            </tr>
+        </thead>
+        <tbody id="rittenTabel">
+            <tr><td colspan="7" style="text-align: center;">Gegevens laden uit database...</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // --- JOUW SUPABASE GEGEVENS ---
+    const SUPABASE_URL = 'https://lmclewyqceztcsvqkoaf.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_gv68Kwlf5w0P8bry7hMBaw_SrE_sAjS';
+    // ------------------------------------------
+
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    async function laadDashboard() {
+        // Haal chauffeurs, vrachtwagens en alle ritten op (nieuwste ritten bovenaan)
+        const { data: chauffeurs } = await db.from('chauffeurs').select('*');
+        const { data: vrachtwagens } = await db.from('vrachtwagens').select('*');
+        const { data: ritten, error } = await db.from('urenregistratie').select('*').order('datum', { ascending: false });
+
+        const tabelBody = document.getElementById('rittenTabel');
+
+        if (error) {
+            tabelBody.innerHTML = `<tr><td colspan="7" style="color: red;">Fout bij laden: ${error.message}</td></tr>`;
+            return;
+        }
+
+        // Als de tabel leeg is
+        if (!ritten || ritten.length === 0) {
+            tabelBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Nog geen ritten gevonden in de database.</td></tr>';
+            return;
+        }
+
+        // Hulp-functies om namen bij de ID's te zoeken
+        const getChauffeurNaam = (id) => chauffeurs.find(c => c.id === id)?.naam || 'Onbekend';
+        const getVrachtwagenKenteken = (id) => vrachtwagens.find(v => v.id === id)?.kenteken || 'Onbekend';
+
+        tabelBody.innerHTML = ''; // Maak de "Laden..." tekst leeg
+
+        // Loop door elke rit heen en voeg een rij toe aan de tabel
+        ritten.forEach(rit => {
+            const tr = document.createElement('tr');
+            
+            // Zet de bedragen en uren netjes op nul als ze toevallig nog leeg zijn in oude testritten
+            const loon = rit.totaal_loon_bedrag !== null ? `€ ${rit.totaal_loon_bedrag.toFixed(2)}` : '€ 0.00';
+            const omzet = rit.totaal_facturatie_bedrag !== null ? `€ ${rit.totaal_facturatie_bedrag.toFixed(2)}` : '€ 0.00';
+            const uren = rit.netto_gewerkte_uren !== null ? rit.netto_gewerkte_uren : '0.00';
+
+            // Vul de HTML van de rij in
+            tr.innerHTML = `
+                <td><strong>${rit.datum}</strong><br><small>Week ${rit.weeknummer}</small></td>
+                <td>${getChauffeurNaam(rit.chauffeur_id)}</td>
+                <td>${getVrachtwagenKenteken(rit.vrachtwagen_id)}</td>
+                <td class="tijden-kolom">${rit.starttijd} - ${rit.eindtijd}<br>${rit.pauze_minuten} min pauze</td>
+                <td>${uren} uur</td>
+                <td class="bedrag">${loon}</td>
+                <td class="bedrag" style="color: green;">${omzet}</td>
+            `;
+            
+            tabelBody.appendChild(tr);
+        });
+    }
+
+    // Start direct met laden
+    laadDashboard();
+</script>
+
+</body>
+</html>
