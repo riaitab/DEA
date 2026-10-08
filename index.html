@@ -2,9 +2,8 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <!-- Essentieel voor mobiel: zorgt dat de app perfect schaalt op telefoonschema's -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Urenregistratie - DEA</title>
+    <title>Urenregistratie - Delivery Express Amsterdam</title>
     <!-- Supabase inladen -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -35,11 +34,10 @@
             min-height: 100vh;
         }
 
-        /* De app-container lijkt nu op een moderne kaart (card) */
         .app-container {
             background-color: var(--card-bg);
             width: 100%;
-            max-width: 480px; /* Perfect formaat voor telefoons en tablets */
+            max-width: 480px;
             border-radius: 12px;
             box-shadow: 0 8px 24px rgba(0,0,0,0.08);
             padding: 30px 25px;
@@ -55,7 +53,7 @@
         }
 
         .header h1 {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             color: var(--primary-color);
             margin-bottom: 5px;
         }
@@ -76,13 +74,12 @@
             font-size: 0.95rem;
         }
 
-        /* Grote invulvelden voor makkelijk typen op touchscreens */
         input, select {
             width: 100%;
             padding: 14px; 
             border: 1px solid var(--border-color);
             border-radius: 8px;
-            font-size: 16px; /* 16px is cruciaal: dit voorkomt dat iPhones automatisch inzoomen */
+            font-size: 16px; 
             background-color: #fcfcfc;
             transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
@@ -93,7 +90,6 @@
             box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.1);
         }
 
-        /* Zet de tijden netjes naast elkaar op één regel om ruimte te besparen */
         .time-row {
             display: flex;
             gap: 15px;
@@ -103,7 +99,6 @@
             margin-bottom: 18px;
         }
 
-        /* Grote, duidelijke verzendknop */
         .submit-btn {
             background-color: var(--primary-color);
             color: white;
@@ -121,7 +116,6 @@
         .submit-btn:active { transform: scale(0.98); }
         .submit-btn:hover { background-color: var(--primary-hover); }
 
-        /* Moderne succesmelding */
         .success-msg {
             display: none;
             background-color: #e8f5e9;
@@ -139,12 +133,12 @@
 
 <div class="app-container">
     <div class="header">
-        <h1>DEA Transport</h1>
+        <h1>Delivery Express Amsterdam</h1>
         <p>Digitale Urenregistratie</p>
     </div>
 
     <div id="succesMelding" class="success-msg">
-        ✓ Rit succesvol opgeslagen! Je kunt dit venster sluiten of een nieuwe rit invullen.
+        ✓ Rit succesvol opgeslagen!
     </div>
 
     <form id="urenForm">
@@ -193,15 +187,31 @@
 </div>
 
 <script>
-    // --- SUPABASE GEGEVENS ---
     const SUPABASE_URL = 'https://lmclewyqceztcsvqkoaf.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_gv68Kwlf5w0P8bry7hMBaw_SrE_sAjS';
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 1. Automatisch de datum van vandaag invullen
-    document.getElementById('datum').value = new Date().toISOString().split('T')[0];
+    // Functie om het correcte ISO weeknummer te berekenen
+    function berekenWeeknummer(d) {
+        const target = new Date(d.valueOf());
+        const dayNr = (d.getDay() + 6) % 7;
+        target.setDate(target.getDate() - dayNr + 3);
+        const firstThursday = target.valueOf();
+        target.setMonth(0, 1);
+        if (target.getDay() !== 4) {
+            target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+        }
+        return 1 + Math.ceil((firstThursday - target) / 604800000);
+    }
 
-    // 2. Chauffeurs en vrachtwagens inladen voor de dropdowns
+    // Lokale datum van vandaag instellen
+    const nu = new Date();
+    const jaar = nu.getFullYear();
+    const maand = String(nu.getMonth() + 1).padStart(2, '0');
+    const dag = String(nu.getDate()).padStart(2, '0');
+    const vandaagString = `${jaar}-${maand}-${dag}`;
+    document.getElementById('datum').value = vandaagString;
+
     async function laadDropdowns() {
         const { data: chauffeurs } = await db.from('chauffeurs').select('*').order('naam');
         const { data: vrachtwagens } = await db.from('vrachtwagens').select('*').order('kenteken');
@@ -228,53 +238,65 @@
         }
     }
 
-    // 3. Formulier versturen naar Supabase
     document.getElementById('urenForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
         const knop = document.getElementById('verzendKnop');
+        const succesDiv = document.getElementById('succesMelding');
+        
         knop.innerText = "Bezig met opslaan...";
         knop.disabled = true;
         knop.style.opacity = "0.7";
+        succesDiv.style.display = 'none';
+
+        // Lees de datum correct uit en bereken het weeknummer
+        const gekozenDatumStr = document.getElementById('datum').value;
+        const delen = gekozenDatumStr.split('-');
+        let berekendWeek = 1;
+
+        if (delen.length === 3) {
+            const j = parseInt(delen[0]);
+            const m = parseInt(delen[1]) - 1;
+            const d = parseInt(delen[2]);
+            const datumObj = new Date(j, m, d);
+            berekendWeek = berekenWeeknummer(datumObj);
+        }
 
         const ritGegevens = {
-            datum: document.getElementById('datum').value,
+            datum: gekozenDatumStr,
+            weeknummer: parseInt(berekendWeek), // Wordt nu foutloos meegestuurd
             rit_omschrijving: document.getElementById('ritnummer').value,
-            chauffeur_id: document.getElementById('chauffeur').value,
-            vrachtwagen_id: document.getElementById('vrachtwagen').value,
+            chauffeur_id: parseInt(document.getElementById('chauffeur').value),
+            vrachtwagen_id: parseInt(document.getElementById('vrachtwagen').value),
             starttijd: document.getElementById('starttijd').value,
             eindtijd: document.getElementById('eindtijd').value,
-            pauze_minuten: document.getElementById('pauze').value
+            pauze_minuten: parseInt(document.getElementById('pauze').value)
         };
 
         const { error } = await db.from('urenregistratie').insert([ritGegevens]);
 
         if (error) {
-            alert("Er is iets misgegaan: " + error.message);
+            alert("Fout bij opslaan in database:\n" + error.message);
             knop.innerText = "Rit Opslaan";
             knop.disabled = false;
             knop.style.opacity = "1";
         } else {
-            // Toon succesmelding, reset formulier en herstel knop
-            document.getElementById('succesMelding').style.display = 'block';
+            succesDiv.style.display = 'block';
             document.getElementById('urenForm').reset();
-            document.getElementById('datum').value = new Date().toISOString().split('T')[0]; // Datum weer op vandaag
+            document.getElementById('datum').value = vandaagString;
             
             knop.innerText = "Rit Opslaan";
             knop.disabled = false;
             knop.style.opacity = "1";
             
-            // Verberg de melding weer na 5 seconden
             setTimeout(() => {
-                document.getElementById('succesMelding').style.display = 'none';
+                succesDiv.style.display = 'none';
             }, 5000);
             
-            // Scroll naar boven zodat de melding goed zichtbaar is
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     });
 
-    // Start direct met inladen van dropdowns
     laadDropdowns();
 </script>
 
