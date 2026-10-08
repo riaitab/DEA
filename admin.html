@@ -149,4 +149,213 @@
 
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
-    let alleOpges
+    let alleOpgeslagenRitten = []; 
+    let alleChauffeurs = [];
+    let alleVrachtwagens = [];
+    let actieveBewerkId = null;
+
+    // DE NIEUWE VEILIGE INLOG CHECK
+    async function checkLogin() {
+        const { data: { user }, error } = await db.auth.getUser();
+        
+        if (user && !error) {
+            toonDashboard();
+        } else {
+            await db.auth.signOut();
+            document.getElementById('dashboardScherm').style.display = 'none';
+            document.getElementById('loginScherm').style.display = 'block';
+        }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const { error } = await db.auth.signInWithPassword({ email, password });
+        if (error) alert("Inloggen mislukt: Controleer je gegevens.");
+        else { document.getElementById('loginForm').reset(); toonDashboard(); }
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', async function() {
+        await db.auth.signOut();
+        document.getElementById('dashboardScherm').style.display = 'none';
+        document.getElementById('loginScherm').style.display = 'block';
+    });
+
+    function toonDashboard() {
+        document.getElementById('loginScherm').style.display = 'none';
+        document.getElementById('dashboardScherm').style.display = 'block';
+        laadDashboard();
+    }
+
+    async function laadDashboard() {
+        const { data: c } = await db.from('chauffeurs').select('*');
+        const { data: v } = await db.from('vrachtwagens').select('*');
+        const { data: r, error } = await db.from('urenregistratie').select('*').order('datum', { ascending: false });
+
+        if (error) {
+            document.getElementById('rittenTabel').innerHTML = `<tr><td colspan="9" style="color: red; text-align: center;">Fout bij laden: ${error.message}</td></tr>`;
+            return;
+        }
+
+        alleChauffeurs = c || [];
+        alleVrachtwagens = v || [];
+        alleOpgeslagenRitten = r || [];
+
+        vulFilterOpties();
+        pasFiltersToe(); 
+    }
+
+    function vulFilterOpties() {
+        const chSelect = document.getElementById('filterChauffeur');
+        chSelect.innerHTML = '<option value="">Alle Chauffeurs</option>';
+        alleChauffeurs.forEach(c => {
+            chSelect.innerHTML += `<option value="${c.id}">${c.naam}</option>`;
+        });
+
+        let weken = new Set();
+        let periodes = new Set();
+        
+        alleOpgeslagenRitten.forEach(rit => {
+            if (rit.weeknummer) {
+                weken.add(rit.weeknummer);
+                periodes.add(Math.ceil(rit.weeknummer / 4)); 
+            }
+        });
+
+        const wkSelect = document.getElementById('filterWeek');
+        wkSelect.innerHTML = '<option value="">Alle Weken</option>';
+        [...weken].sort((a, b) => b - a).forEach(w => {
+            wkSelect.innerHTML += `<option value="${w}">Week ${w}</option>`;
+        });
+
+        const perSelect = document.getElementById('filterPeriode');
+        perSelect.innerHTML = '<option value="">Alle Periodes</option>';
+        [...periodes].sort((a, b) => b - a).forEach(p => {
+            perSelect.innerHTML += `<option value="${p}">Periode ${p} (Wk ${(p*4)-3} t/m ${p*4})</option>`;
+        });
+    }
+
+    function pasFiltersToe() {
+        const chauffeurId = document.getElementById('filterChauffeur').value;
+        const periodeNummer = document.getElementById('filterPeriode').value;
+        const weekNummer = document.getElementById('filterWeek').value;
+
+        let gefilterdeRitten = alleOpgeslagenRitten;
+
+        if (chauffeurId) {
+            gefilterdeRitten = gefilterdeRitten.filter(rit => rit.chauffeur_id == chauffeurId);
+        }
+        if (periodeNummer) {
+            gefilterdeRitten = gefilterdeRitten.filter(rit => Math.ceil(rit.weeknummer / 4) == periodeNummer);
+        }
+        if (weekNummer) {
+            gefilterdeRitten = gefilterdeRitten.filter(rit => rit.weeknummer == weekNummer);
+        }
+
+        tekenTabel(gefilterdeRitten);
+    }
+
+    function resetFilters() {
+        document.getElementById('filterChauffeur').value = '';
+        document.getElementById('filterPeriode').value = '';
+        document.getElementById('filterWeek').value = '';
+        pasFiltersToe();
+    }
+
+    function tekenTabel(rittenLijst) {
+        const tabelBody = document.getElementById('rittenTabel');
+        
+        if (rittenLijst.length === 0) {
+            tabelBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Geen ritten gevonden met deze filters.</td></tr>';
+            document.getElementById('totaalUren').innerText = '0.00 uur';
+            document.getElementById('totaalLoon').innerText = '€ 0.00';
+            document.getElementById('totaalOmzet').innerText = '€ 0.00';
+            return;
+        }
+
+        tabelBody.innerHTML = ''; 
+        
+        let somUren = 0;
+        let somLoon = 0;
+        let somOmzet = 0;
+
+        const getChauffeurNaam = (id) => alleChauffeurs.find(c => c.id == id)?.naam || 'Onbekend';
+        const getVrachtwagenKenteken = (id) => alleVrachtwagens.find(v => v.id == id)?.kenteken || 'Onbekend';
+
+        rittenLijst.forEach(rit => {
+            const urenNum = rit.netto_gewerkte_uren ? parseFloat(rit.netto_gewerkte_uren) : 0;
+            const loonNum = rit.totaal_loon_bedrag ? parseFloat(rit.totaal_loon_bedrag) : 0;
+            const omzetNum = rit.totaal_facturatie_bedrag ? parseFloat(rit.totaal_facturatie_bedrag) : 0;
+
+            somUren += urenNum;
+            somLoon += loonNum;
+            somOmzet += omzetNum;
+
+            const ritnummer = rit.rit_omschrijving ? rit.rit_omschrijving : '-';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td><strong>${rit.datum}</strong><br><small>Week ${rit.weeknummer}</small></td>
+                <td><strong>${ritnummer}</strong></td>
+                <td>${getChauffeurNaam(rit.chauffeur_id)}</td>
+                <td>${getVrachtwagenKenteken(rit.vrachtwagen_id)}</td>
+                <td class="tijden-kolom">${rit.starttijd} - ${rit.eindtijd}<br>${rit.pauze_minuten} min pauze</td>
+                <td>${urenNum.toFixed(2)} uur</td>
+                <td class="bedrag">€ ${loonNum.toFixed(2)}</td>
+                <td class="bedrag" style="color: green;">€ ${omzetNum.toFixed(2)}</td>
+                <td>
+                    <button class="edit-btn" onclick="openBewerkScherm(${rit.id})">Bewerk</button>
+                    <button class="delete-btn" onclick="verwijderRit(${rit.id})">Wissen</button>
+                </td>
+            `;
+            tabelBody.appendChild(tr);
+        });
+
+        document.getElementById('totaalUren').innerText = `${somUren.toFixed(2)} uur`;
+        document.getElementById('totaalLoon').innerText = `€ ${somLoon.toFixed(2)}`;
+        document.getElementById('totaalOmzet').innerText = `€ ${somOmzet.toFixed(2)}`;
+    }
+
+    async function verwijderRit(id) {
+        if (!confirm("Weet je zeker dat je deze rit wilt wissen?")) return;
+        const { error } = await db.from('urenregistratie').delete().eq('id', id);
+        if (error) alert("Fout bij wissen: " + error.message);
+        else laadDashboard();
+    }
+
+    function openBewerkScherm(id) {
+        const rit = alleOpgeslagenRitten.find(r => r.id === id);
+        if (!rit) return;
+        
+        actieveBewerkId = id;
+        document.getElementById('editDatum').value = rit.datum;
+        document.getElementById('editRitnummer').value = rit.rit_omschrijving || '';
+        document.getElementById('editStarttijd').value = rit.starttijd;
+        document.getElementById('editEindtijd').value = rit.eindtijd;
+        document.getElementById('editPauze').value = rit.pauze_minuten;
+        
+        document.getElementById('bewerkModal').style.display = 'flex';
+    }
+
+    function sluitBewerkScherm() {
+        document.getElementById('bewerkModal').style.display = 'none';
+        actieveBewerkId = null;
+    }
+
+    document.getElementById('bewerkForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const updateData = {
+            datum: document.getElementById('editDatum').value,
+            rit_omschrijving: document.getElementById('editRitnummer').value,
+            starttijd: document.getElementById('editStarttijd').value,
+            eindtijd: document.getElementById('editEindtijd').value,
+            pauze_minuten: document.getElementById('editPauze').value
+        };
+        const { error } = await db.from('urenregistratie').update(updateData).eq('id', actieveBewerkId);
+        if (error) alert("Fout bij opslaan: " + error.message);
+        else { sluitBewerkScherm(); laadDashboard(); }
+    });
+
+    checkLogin();
+</script>
