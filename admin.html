@@ -15,7 +15,6 @@
             display: flex;
             justify-content: center;
         }
-        /* Styling voor inlogscherm */
         .login-container {
             background-color: white; 
             padding: 25px; 
@@ -46,17 +45,15 @@
             cursor: pointer;
         }
         .login-container button:hover { background-color: #004494; }
-
-        /* Styling voor dashboard */
         .dashboard-container { 
             background-color: white; 
             padding: 25px; 
             border-radius: 10px; 
             box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
             width: 100%;
-            max-width: 1000px; 
+            max-width: 1100px; 
             overflow-x: auto; 
-            display: none; /* Standaard verborgen tot inloggen */
+            display: none; 
         }
         .header-balk {
             display: flex;
@@ -110,6 +107,7 @@
         <thead>
             <tr>
                 <th>Datum</th>
+                <th>Ritnummer</th>
                 <th>Chauffeur</th>
                 <th>Vrachtwagen</th>
                 <th>Tijden & Pauze</th>
@@ -119,7 +117,7 @@
             </tr>
         </thead>
         <tbody id="rittenTabel">
-            <tr><td colspan="7" style="text-align: center;">Gegevens laden...</td></tr>
+            <tr><td colspan="8" style="text-align: center;">Gegevens laden...</td></tr>
         </tbody>
     </table>
 </div>
@@ -132,7 +130,6 @@
 
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 1. Controleer of de beheerder al is ingelogd
     async function checkLogin() {
         const { data: { session } } = await db.auth.getSession();
         if (session) {
@@ -140,7 +137,6 @@
         }
     }
 
-    // 2. Inloggen afhandelen
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const email = document.getElementById('email').value;
@@ -159,21 +155,18 @@
         }
     });
 
-    // 3. Uitloggen afhandelen
     document.getElementById('logoutBtn').addEventListener('click', async function() {
         await db.auth.signOut();
         document.getElementById('dashboardScherm').style.display = 'none';
         document.getElementById('loginScherm').style.display = 'block';
     });
 
-    // 4. Wissel van scherm en laad de data
     function toonDashboard() {
         document.getElementById('loginScherm').style.display = 'none';
         document.getElementById('dashboardScherm').style.display = 'block';
         laadDashboard();
     }
 
-    // 5. Tabel data ophalen (werkt nu alleen omdat je bent ingelogd)
     async function laadDashboard() {
         const { data: chauffeurs } = await db.from('chauffeurs').select('*');
         const { data: vrachtwagens } = await db.from('vrachtwagens').select('*');
@@ -182,17 +175,18 @@
         const tabelBody = document.getElementById('rittenTabel');
 
         if (error) {
-            tabelBody.innerHTML = `<tr><td colspan="7" style="color: red; text-align: center;">Fout bij laden: ${error.message}</td></tr>`;
+            tabelBody.innerHTML = `<tr><td colspan="8" style="color: red; text-align: center;">Fout bij laden: ${error.message}</td></tr>`;
             return;
         }
 
         if (!ritten || ritten.length === 0) {
-            tabelBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Nog geen ritten gevonden in de database.</td></tr>';
+            tabelBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Nog geen ritten gevonden in de database.</td></tr>';
             return;
         }
 
-        const getChauffeurNaam = (id) => chauffeurs?.find(c => c.id === id)?.naam || 'Onbekend';
-        const getVrachtwagenKenteken = (id) => vrachtwagens?.find(v => v.id === id)?.kenteken || 'Onbekend';
+        // Oplossing "Onbekend": we gebruiken '==' in plaats van '===' zodat een tekst en een cijfer wel matchen
+        const getChauffeurNaam = (id) => chauffeurs?.find(c => c.id == id)?.naam || 'Onbekend';
+        const getVrachtwagenKenteken = (id) => vrachtwagens?.find(v => v.id == id)?.kenteken || 'Onbekend';
 
         tabelBody.innerHTML = ''; 
 
@@ -202,9 +196,11 @@
             const loon = rit.totaal_loon_bedrag !== null ? `€ ${rit.totaal_loon_bedrag.toFixed(2)}` : '€ 0.00';
             const omzet = rit.totaal_facturatie_bedrag !== null ? `€ ${rit.totaal_facturatie_bedrag.toFixed(2)}` : '€ 0.00';
             const uren = rit.netto_gewerkte_uren !== null ? rit.netto_gewerkte_uren : '0.00';
+            const ritnummer = rit.rit_omschrijving ? rit.rit_omschrijving : '-'; // Controleer of ritnummer is ingevuld
 
             tr.innerHTML = `
                 <td><strong>${rit.datum}</strong><br><small>Week ${rit.weeknummer}</small></td>
+                <td><strong>${ritnummer}</strong></td>
                 <td>${getChauffeurNaam(rit.chauffeur_id)}</td>
                 <td>${getVrachtwagenKenteken(rit.vrachtwagen_id)}</td>
                 <td class="tijden-kolom">${rit.starttijd} - ${rit.eindtijd}<br>${rit.pauze_minuten} min pauze</td>
@@ -217,7 +213,6 @@
         });
     }
 
-    // Controleer inlogstatus bij het openen van de pagina
     checkLogin();
 </script>
 
