@@ -21,10 +21,13 @@
         .delete-btn { background-color: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 5px; width: 100%; }
         .edit-btn { background-color: #ffc107; color: black; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; width: 100%; }
         
+        /* Nieuwe groene export knop */
+        .btn-groen { background-color: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; height: 42px; margin-top: 22px; }
+        .btn-groen:hover { background-color: #218838; }
+
         .header-balk { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0056b3; padding-bottom: 10px; margin-bottom: 20px;}
         h2 { color: #333; margin: 0; }
         
-        /* Filter Balk Styling */
         .filter-balk { display: flex; gap: 15px; background-color: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; align-items: center; flex-wrap: wrap; }
         .filter-groep { flex: 1; min-width: 150px; }
         .filter-groep select { margin-bottom: 0; padding: 10px; }
@@ -38,7 +41,6 @@
         .bedrag { text-align: right; font-weight: bold; }
         .tijden-kolom { font-size: 0.9em; color: #555; }
         
-        /* Totaal Rij Styling */
         .totaal-rij { background-color: #d1ecf1; border-top: 3px solid #17a2b8; font-weight: bold; }
         .totaal-rij td { border-bottom: none; }
         
@@ -87,6 +89,8 @@
             </select>
         </div>
         <button class="btn-reset" onclick="resetFilters()">Wis Filters</button>
+        <!-- NIEUWE EXPORT KNOP -->
+        <button class="btn-groen" onclick="exporteerNaarCSV()">Exporteer CSV</button>
     </div>
 
     <table>
@@ -106,7 +110,6 @@
         <tbody id="rittenTabel">
             <tr><td colspan="9" style="text-align: center;">Gegevens laden...</td></tr>
         </tbody>
-        <!-- TOTAAL RIJ -->
         <tfoot>
             <tr class="totaal-rij">
                 <td colspan="5" style="text-align: right;">Totalen (Gefilterd):</td>
@@ -142,22 +145,18 @@
 </div>
 
 <script>
-    // --- JOUW SUPABASE GEGEVENS ---
     const SUPABASE_URL = 'https://lmclewyqceztcsvqkoaf.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_gv68Kwlf5w0P8bry7hMBaw_SrE_sAjS';
-    // ------------------------------------------
-
     const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     
     let alleOpgeslagenRitten = []; 
     let alleChauffeurs = [];
     let alleVrachtwagens = [];
     let actieveBewerkId = null;
+    let laatstGefilterdeRitten = []; // Slaat de actieve filters op voor de exporteer functie
 
-    // DE NIEUWE VEILIGE INLOG CHECK
     async function checkLogin() {
         const { data: { user }, error } = await db.auth.getUser();
-        
         if (user && !error) {
             toonDashboard();
         } else {
@@ -241,19 +240,19 @@
         const periodeNummer = document.getElementById('filterPeriode').value;
         const weekNummer = document.getElementById('filterWeek').value;
 
-        let gefilterdeRitten = alleOpgeslagenRitten;
+        laatstGefilterdeRitten = alleOpgeslagenRitten;
 
         if (chauffeurId) {
-            gefilterdeRitten = gefilterdeRitten.filter(rit => rit.chauffeur_id == chauffeurId);
+            laatstGefilterdeRitten = laatstGefilterdeRitten.filter(rit => rit.chauffeur_id == chauffeurId);
         }
         if (periodeNummer) {
-            gefilterdeRitten = gefilterdeRitten.filter(rit => Math.ceil(rit.weeknummer / 4) == periodeNummer);
+            laatstGefilterdeRitten = laatstGefilterdeRitten.filter(rit => Math.ceil(rit.weeknummer / 4) == periodeNummer);
         }
         if (weekNummer) {
-            gefilterdeRitten = gefilterdeRitten.filter(rit => rit.weeknummer == weekNummer);
+            laatstGefilterdeRitten = laatstGefilterdeRitten.filter(rit => rit.weeknummer == weekNummer);
         }
 
-        tekenTabel(gefilterdeRitten);
+        tekenTabel(laatstGefilterdeRitten);
     }
 
     function resetFilters() {
@@ -275,10 +274,7 @@
         }
 
         tabelBody.innerHTML = ''; 
-        
-        let somUren = 0;
-        let somLoon = 0;
-        let somOmzet = 0;
+        let somUren = 0; let somLoon = 0; let somOmzet = 0;
 
         const getChauffeurNaam = (id) => alleChauffeurs.find(c => c.id == id)?.naam || 'Onbekend';
         const getVrachtwagenKenteken = (id) => alleVrachtwagens.find(v => v.id == id)?.kenteken || 'Onbekend';
@@ -288,10 +284,7 @@
             const loonNum = rit.totaal_loon_bedrag ? parseFloat(rit.totaal_loon_bedrag) : 0;
             const omzetNum = rit.totaal_facturatie_bedrag ? parseFloat(rit.totaal_facturatie_bedrag) : 0;
 
-            somUren += urenNum;
-            somLoon += loonNum;
-            somOmzet += omzetNum;
-
+            somUren += urenNum; somLoon += loonNum; somOmzet += omzetNum;
             const ritnummer = rit.rit_omschrijving ? rit.rit_omschrijving : '-';
 
             const tr = document.createElement('tr');
@@ -315,6 +308,66 @@
         document.getElementById('totaalUren').innerText = `${somUren.toFixed(2)} uur`;
         document.getElementById('totaalLoon').innerText = `€ ${somLoon.toFixed(2)}`;
         document.getElementById('totaalOmzet').innerText = `€ ${somOmzet.toFixed(2)}`;
+    }
+
+    // --- NIEUWE EXPORT FUNCTIE ---
+    function exporteerNaarCSV() {
+        if (laatstGefilterdeRitten.length === 0) {
+            alert("Er zijn geen ritten om te exporteren.");
+            return;
+        }
+
+        // CSV Headers (met puntkomma gescheiden voor Nederlandse Excel)
+        let csvInhoud = "Datum;Week;Ritnummer;Chauffeur;Vrachtwagen;Starttijd;Eindtijd;Pauze (min);Netto Uren;Loonkosten;Omzet\n";
+
+        const getChauffeurNaam = (id) => alleChauffeurs.find(c => c.id == id)?.naam || 'Onbekend';
+        const getVrachtwagenKenteken = (id) => alleVrachtwagens.find(v => v.id == id)?.kenteken || 'Onbekend';
+
+        // Loop over de gefilterde lijst
+        laatstGefilterdeRitten.forEach(rit => {
+            let uren = rit.netto_gewerkte_uren || 0;
+            let loon = rit.totaal_loon_bedrag || 0;
+            let omzet = rit.totaal_facturatie_bedrag || 0;
+
+            let rij = [
+                rit.datum,
+                rit.weeknummer,
+                rit.rit_omschrijving || '-',
+                getChauffeurNaam(rit.chauffeur_id),
+                getVrachtwagenKenteken(rit.vrachtwagen_id),
+                rit.starttijd,
+                rit.eindtijd,
+                rit.pauze_minuten,
+                String(uren).replace('.', ','), // Punt naar komma voor NL Excel
+                String(loon).replace('.', ','),
+                String(omzet).replace('.', ',')
+            ];
+            
+            // Voeg rij toe, omringd door aanhalingstekens om conflicten met tekst te voorkomen
+            csvInhoud += rij.map(waarde => `"${waarde}"`).join(";") + "\n";
+        });
+
+        // Totalen berekenen en onderaan toevoegen
+        let somUren = laatstGefilterdeRitten.reduce((som, r) => som + (parseFloat(r.netto_gewerkte_uren) || 0), 0);
+        let somLoon = laatstGefilterdeRitten.reduce((som, r) => som + (parseFloat(r.totaal_loon_bedrag) || 0), 0);
+        let somOmzet = laatstGefilterdeRitten.reduce((som, r) => som + (parseFloat(r.totaal_facturatie_bedrag) || 0), 0);
+        
+        csvInhoud += `\n"TOTALEN";"";"";"";"";"";"";"";"${String(somUren.toFixed(2)).replace('.', ',')}";"${String(somLoon.toFixed(2)).replace('.', ',')}";"${String(somOmzet.toFixed(2)).replace('.', ',')}"\n`;
+
+        // Download triggeren (met UTF-8 BOM encoding zodat Excel geen rare tekens maakt)
+        let blob = new Blob(["\uFEFF" + csvInhoud], { type: 'text/csv;charset=utf-8;' });
+        let link = document.createElement("a");
+        let url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        
+        // Plak de huidige datum aan de bestandsnaam vast
+        let vandaag = new Date().toISOString().split('T')[0];
+        link.setAttribute("download", `Urenregistratie_DEA_${vandaag}.csv`);
+        
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     async function verwijderRit(id) {
@@ -359,3 +412,6 @@
 
     checkLogin();
 </script>
+
+</body>
+</html>
