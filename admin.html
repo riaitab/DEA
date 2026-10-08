@@ -7,78 +7,27 @@
     <!-- Supabase inladen -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            background-color: #f4f4f9; 
-            padding: 20px; 
-            margin: 0;
-            display: flex;
-            justify-content: center;
-        }
-        .login-container {
-            background-color: white; 
-            padding: 25px; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
-            width: 100%;
-            max-width: 400px;
-            margin-top: 50px;
-        }
-        .login-container input {
-            width: 100%;
-            padding: 12px;
-            margin-top: 10px;
-            margin-bottom: 20px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-        }
-        .login-container button {
-            width: 100%;
-            padding: 15px;
-            background-color: #0056b3;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-        }
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; margin: 0; display: flex; justify-content: center; }
+        .login-container { background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 100%; max-width: 400px; margin-top: 50px; }
+        .login-container input { width: 100%; padding: 12px; margin-top: 10px; margin-bottom: 20px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .login-container button { width: 100%; padding: 15px; background-color: #0056b3; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; }
         .login-container button:hover { background-color: #004494; }
-        .dashboard-container { 
-            background-color: white; 
-            padding: 25px; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
-            width: 100%;
-            max-width: 1100px; 
-            overflow-x: auto; 
-            display: none; 
-        }
-        .header-balk {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #0056b3;
-            padding-bottom: 10px;
-        }
+        
+        .dashboard-container { background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 100%; max-width: 1200px; overflow-x: auto; display: none; }
+        .header-balk { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0056b3; padding-bottom: 10px; }
         h2 { color: #333; margin: 0; }
-        .uitlog-btn {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .uitlog-btn:hover { background-color: #c82333; }
+        .uitlog-btn { background-color: #6c757d; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .uitlog-btn:hover { background-color: #5a6268; }
+        
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
         th { background-color: #0056b3; color: white; }
         tr:hover { background-color: #f9f9f9; }
         .bedrag { text-align: right; font-weight: bold; }
         .tijden-kolom { font-size: 0.9em; color: #555; }
+        
+        .delete-btn { background-color: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .delete-btn:hover { background-color: #c82333; }
     </style>
 </head>
 <body>
@@ -89,10 +38,8 @@
     <form id="loginForm">
         <label for="email">E-mailadres</label>
         <input type="email" id="email" required placeholder="jouw@email.nl">
-        
         <label for="password">Wachtwoord</label>
         <input type="password" id="password" required placeholder="••••••••">
-        
         <button type="submit">Inloggen</button>
     </form>
 </div>
@@ -114,10 +61,11 @@
                 <th>Netto Uren</th>
                 <th class="bedrag">Loonkosten</th>
                 <th class="bedrag">Omzet (Facturatie)</th>
+                <th>Acties</th>
             </tr>
         </thead>
         <tbody id="rittenTabel">
-            <tr><td colspan="8" style="text-align: center;">Gegevens laden...</td></tr>
+            <tr><td colspan="9" style="text-align: center;">Gegevens laden...</td></tr>
         </tbody>
     </table>
 </div>
@@ -132,27 +80,17 @@
 
     async function checkLogin() {
         const { data: { session } } = await db.auth.getSession();
-        if (session) {
-            toonDashboard();
-        }
+        if (session) toonDashboard();
     }
 
     document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
+        const { data, error } = await db.auth.signInWithPassword({ email, password });
 
-        const { data, error } = await db.auth.signInWithPassword({
-            email: email,
-            password: password
-        });
-
-        if (error) {
-            alert("Inloggen mislukt: Controleer je e-mailadres en wachtwoord.");
-        } else {
-            document.getElementById('loginForm').reset();
-            toonDashboard();
-        }
+        if (error) alert("Inloggen mislukt: Controleer je gegevens.");
+        else { document.getElementById('loginForm').reset(); toonDashboard(); }
     });
 
     document.getElementById('logoutBtn').addEventListener('click', async function() {
@@ -167,6 +105,19 @@
         laadDashboard();
     }
 
+    // NIEUW: Functie om een rit te verwijderen
+    async function verwijderRit(id) {
+        if (!confirm("Weet je zeker dat je deze rit definitief wilt verwijderen?")) return;
+        
+        const { error } = await db.from('urenregistratie').delete().eq('id', id);
+        
+        if (error) {
+            alert("Er is iets misgegaan bij het verwijderen: " + error.message);
+        } else {
+            laadDashboard(); // Herlaad de tabel direct zodat de rit verdwijnt
+        }
+    }
+
     async function laadDashboard() {
         const { data: chauffeurs } = await db.from('chauffeurs').select('*');
         const { data: vrachtwagens } = await db.from('vrachtwagens').select('*');
@@ -175,16 +126,15 @@
         const tabelBody = document.getElementById('rittenTabel');
 
         if (error) {
-            tabelBody.innerHTML = `<tr><td colspan="8" style="color: red; text-align: center;">Fout bij laden: ${error.message}</td></tr>`;
+            tabelBody.innerHTML = `<tr><td colspan="9" style="color: red; text-align: center;">Fout bij laden: ${error.message}</td></tr>`;
             return;
         }
 
         if (!ritten || ritten.length === 0) {
-            tabelBody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Nog geen ritten gevonden in de database.</td></tr>';
+            tabelBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Nog geen ritten gevonden in de database.</td></tr>';
             return;
         }
 
-        // Oplossing "Onbekend": we gebruiken '==' in plaats van '===' zodat een tekst en een cijfer wel matchen
         const getChauffeurNaam = (id) => chauffeurs?.find(c => c.id == id)?.naam || 'Onbekend';
         const getVrachtwagenKenteken = (id) => vrachtwagens?.find(v => v.id == id)?.kenteken || 'Onbekend';
 
@@ -196,7 +146,7 @@
             const loon = rit.totaal_loon_bedrag !== null ? `€ ${rit.totaal_loon_bedrag.toFixed(2)}` : '€ 0.00';
             const omzet = rit.totaal_facturatie_bedrag !== null ? `€ ${rit.totaal_facturatie_bedrag.toFixed(2)}` : '€ 0.00';
             const uren = rit.netto_gewerkte_uren !== null ? rit.netto_gewerkte_uren : '0.00';
-            const ritnummer = rit.rit_omschrijving ? rit.rit_omschrijving : '-'; // Controleer of ritnummer is ingevuld
+            const ritnummer = rit.rit_omschrijving ? rit.rit_omschrijving : '-';
 
             tr.innerHTML = `
                 <td><strong>${rit.datum}</strong><br><small>Week ${rit.weeknummer}</small></td>
@@ -207,6 +157,7 @@
                 <td>${uren} uur</td>
                 <td class="bedrag">${loon}</td>
                 <td class="bedrag" style="color: green;">${omzet}</td>
+                <td><button class="delete-btn" onclick="verwijderRit(${rit.id})">Wissen</button></td>
             `;
             
             tabelBody.appendChild(tr);
