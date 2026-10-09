@@ -4,10 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Beheerders Dashboard - DEA</title>
-    <!-- Supabase inladen -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- PDF Bibliotheken inladen -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
@@ -28,10 +25,12 @@
         .btn-groen { background-color: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; height: 42px; margin-top: 22px; }
         .btn-rood { background-color: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; height: 42px; margin-top: 22px; }
         .btn-rood:hover { background-color: #c82333; }
-        
-        /* Nieuwe oranje knop voor het markeren */
         .btn-oranje { background-color: #fd7e14; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; height: 42px; margin-top: 22px; }
         .btn-oranje:hover { background-color: #e86e04; }
+        
+        /* Nieuwe knop voor de klantfactuur */
+        .btn-paars { background-color: #6f42c1; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; height: 42px; margin-top: 22px; }
+        .btn-paars:hover { background-color: #59339d; }
         
         .actie-knoppen { display: flex; gap: 5px; }
         .actie-knoppen button { margin: 0; width: auto; flex: 1; padding: 8px; }
@@ -114,6 +113,7 @@
             <button class="btn-oranje" onclick="markeerGefilterdAlsGecontroleerd()">Markeer Gecontroleerd</button>
             <button class="btn-groen" onclick="exporteerNaarCSV()">CSV Download</button>
             <button class="btn-rood" onclick="genereerPDF()">Maak PDF Overzicht</button>
+            <button class="btn-paars" onclick="genereerKlantFactuur()">Maak Klantfactuur</button>
         </div>
         <div style="overflow-x: auto;">
             <table>
@@ -388,213 +388,4 @@
         rittenLijst.forEach(rit => {
             const urenNum = rit.netto_gewerkte_uren ? parseFloat(rit.netto_gewerkte_uren) : 0;
             const loonNum = rit.totaal_loon_bedrag ? parseFloat(rit.totaal_loon_bedrag) : 0;
-            const omzetNum = rit.totaal_facturatie_bedrag ? parseFloat(rit.totaal_facturatie_bedrag) : 0;
-            somUren += urenNum; somLoon += loonNum; somOmzet += omzetNum;
-
-            // Status badge opmaak bepalen
-            const statusTekst = rit.status || 'Te controleren';
-            const statusClass = statusTekst === 'Gecontroleerd' ? 'status-gecontroleerd' : 'status-te-controleren';
-
-            tabelBody.innerHTML += `<tr>
-                <td><strong>${rit.datum}</strong><br><small>Wk ${rit.weeknummer || '?'}</small></td>
-                <td><strong>${rit.rit_omschrijving || '-'}</strong></td>
-                <td>${getChauffeurNaam(rit.chauffeur_id)}</td>
-                <td>${getVrachtwagenKenteken(rit.vrachtwagen_id)}</td>
-                <td class="tijden-kolom">${rit.starttijd} - ${rit.eindtijd}<br>${rit.pauze_minuten} m pauze</td>
-                <td>${urenNum.toFixed(2)} uur</td><td class="bedrag">€ ${loonNum.toFixed(2)}</td><td class="bedrag" style="color: green;">€ ${omzetNum.toFixed(2)}</td>
-                <td><span class="status-badge ${statusClass}">${statusTekst}</span></td>
-                <td>
-                    <button class="edit-btn" style="margin-bottom: 5px;" onclick="openBewerkScherm(${rit.id})">✎</button>
-                    <button class="delete-btn" style="margin-top: 0;" onclick="verwijderRit(${rit.id})">✖</button>
-                </td>
-            </tr>`;
-        });
-
-        document.getElementById('totaalUren').innerText = `${somUren.toFixed(2)} uur`;
-        document.getElementById('totaalLoon').innerText = `€ ${somLoon.toFixed(2)}`;
-        document.getElementById('totaalOmzet').innerText = `€ ${somOmzet.toFixed(2)}`;
-    }
-
-    // --- NIEUWE BULK STATUS FUNCTIE ---
-    async function markeerGefilterdAlsGecontroleerd() {
-        if (laatstGefilterdeRitten.length === 0) {
-            return alert("Er zijn geen ritten geselecteerd in het overzicht om te markeren.");
-        }
-        
-        if (!confirm(`Weet je zeker dat je alle ${laatstGefilterdeRitten.length} getoonde ritten als 'Gecontroleerd' wilt markeren?`)) {
-            return;
-        }
-
-        // Verzamel alle ID's van de ritten die nu in beeld zijn
-        const ritIds = laatstGefilterdeRitten.map(rit => rit.id);
-
-        // Update de status in Supabase voor deze specifieke ritten
-        const { error } = await db
-            .from('urenregistratie')
-            .update({ status: 'Gecontroleerd' })
-            .in('id', ritIds);
-
-        if (error) {
-            alert("Er ging iets mis bij het updaten: " + error.message);
-        } else {
-            alert("Succes! De ritten zijn gemarkeerd als gecontroleerd.");
-            laadDashboard(); // Herlaad de pagina zodat alles op groen springt
-        }
-    }
-
-    function exporteerNaarCSV() {
-        if (laatstGefilterdeRitten.length === 0) return alert("Geen ritten om te exporteren.");
-        let csvInhoud = "Datum;Week;Ritnummer;Chauffeur;Vrachtwagen;Starttijd;Eindtijd;Pauze (min);Netto Uren;Loonkosten;Omzet;Status\n";
-        const getChauffeurNaam = (id) => alleChauffeurs.find(c => c.id == id)?.naam || 'Onbekend';
-        const getVrachtwagenKenteken = (id) => alleVrachtwagens.find(v => v.id == id)?.kenteken || 'Onbekend';
-
-        laatstGefilterdeRitten.forEach(rit => {
-            let uren = rit.netto_gewerkte_uren || 0; let loon = rit.totaal_loon_bedrag || 0; let omzet = rit.totaal_facturatie_bedrag || 0;
-            let status = rit.status || 'Te controleren';
-            let rij = [
-                rit.datum, rit.weeknummer || '', rit.rit_omschrijving || '-', getChauffeurNaam(rit.chauffeur_id), getVrachtwagenKenteken(rit.vrachtwagen_id),
-                rit.starttijd, rit.eindtijd, rit.pauze_minuten, String(uren).replace('.', ','), String(loon).replace('.', ','), String(omzet).replace('.', ','), status
-            ];
-            csvInhoud += rij.map(waarde => `"${waarde}"`).join(";") + "\n";
-        });
-        let somUren = laatstGefilterdeRitten.reduce((s, r) => s + (parseFloat(r.netto_gewerkte_uren) || 0), 0);
-        let somLoon = laatstGefilterdeRitten.reduce((s, r) => s + (parseFloat(r.totaal_loon_bedrag) || 0), 0);
-        let somOmzet = laatstGefilterdeRitten.reduce((s, r) => s + (parseFloat(r.totaal_facturatie_bedrag) || 0), 0);
-        csvInhoud += `\n"TOTALEN";"";"";"";"";"";"";"";"${String(somUren.toFixed(2)).replace('.', ',')}";"${String(somLoon.toFixed(2)).replace('.', ',')}";"${String(somOmzet.toFixed(2)).replace('.', ',')}";""\n`;
-
-        let blob = new Blob(["\uFEFF" + csvInhoud], { type: 'text/csv;charset=utf-8;' });
-        let link = document.createElement("a"); link.setAttribute("href", URL.createObjectURL(blob));
-        link.setAttribute("download", `Urenregistratie_DEA_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    }
-
-    function genereerPDF() {
-        if (laatstGefilterdeRitten.length === 0) {
-            alert("Er zijn geen ritten om een overzicht van te maken.");
-            return;
-        }
-
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF('landscape');
-
-        const chSelect = document.getElementById('filterChauffeur');
-        const chauffeurNaam = chSelect.value ? chSelect.options[chSelect.selectedIndex].text : 'Alle Chauffeurs';
-
-        const weekSelect = document.getElementById('filterWeek').value;
-        const weekTekst = weekSelect ? weekSelect : 'Alle';
-        
-        const datums = laatstGefilterdeRitten.map(r => new Date(r.datum));
-        const minDatum = new Date(Math.min(...datums));
-        const maxDatum = new Date(Math.max(...datums));
-        
-        const formatDatum = (d) => {
-            let dag = d.getDate().toString().padStart(2, '0');
-            let maand = (d.getMonth() + 1).toString().padStart(2, '0');
-            return `${dag}-${maand}-${d.getFullYear()}`;
-        };
-        const periodeTekst = `${formatDatum(minDatum)} t/m ${formatDatum(maxDatum)}`;
-
-        const uniekeDatums = new Set(laatstGefilterdeRitten.map(r => r.datum));
-        const aantalDagen = uniekeDatums.size;
-
-        doc.setFontSize(18); 
-        doc.setTextColor(0, 86, 179); 
-        doc.text(`Weekoverzicht week ${weekTekst} - ${chauffeurNaam}`, 14, 20);
-        
-        doc.setFontSize(14);
-        doc.setTextColor(0, 0, 0);
-        doc.text("Delivery Express Amsterdam", 14, 28);
-        
-        doc.setFontSize(11);
-        doc.setTextColor(80, 80, 80);
-        doc.text(`Periode: ${periodeTekst}`, 14, 38);
-        doc.text(`Aantal gewerkte dagen: ${aantalDagen}`, 14, 44);
-        
-        const getChauffeurNaam = (id) => alleChauffeurs.find(c => c.id == id)?.naam || 'Onbekend';
-        const getVrachtwagenKenteken = (id) => alleVrachtwagens.find(v => v.id == id)?.kenteken || 'Onbekend';
-        
-        // Let op: PDF heeft nu de kolom 'Status' weggelaten zodat het netjes past en de factuur zakelijk blijft.
-        const tableColumn = ["Datum", "Ritnummer", "Chauffeur", "Vrachtwagen", "Tijden", "Netto Uren", "Loonkosten", "Omzet"];
-        const tableRows = [];
-        
-        let somUren = 0; let somLoon = 0; let somOmzet = 0;
-        const gesorteerdeRitten = [...laatstGefilterdeRitten].sort((a, b) => new Date(a.datum) - new Date(b.datum));
-
-        gesorteerdeRitten.forEach(rit => {
-            const urenNum = rit.netto_gewerkte_uren ? parseFloat(rit.netto_gewerkte_uren) : 0;
-            const loonNum = rit.totaal_loon_bedrag ? parseFloat(rit.totaal_loon_bedrag) : 0;
-            const omzetNum = rit.totaal_facturatie_bedrag ? parseFloat(rit.totaal_facturatie_bedrag) : 0;
-            somUren += urenNum; somLoon += loonNum; somOmzet += omzetNum;
-
-            tableRows.push([
-                formatDatum(new Date(rit.datum)),
-                rit.rit_omschrijving || '-',
-                getChauffeurNaam(rit.chauffeur_id),
-                getVrachtwagenKenteken(rit.vrachtwagen_id),
-                `${rit.starttijd} - ${rit.eindtijd}`,
-                urenNum.toFixed(2),
-                `€ ${loonNum.toFixed(2)}`,
-                `€ ${omzetNum.toFixed(2)}`
-            ]);
-        });
-
-        tableRows.push([
-            "TOTAAL", "", "", "", "",
-            somUren.toFixed(2) + " uur",
-            "€ " + somLoon.toFixed(2),
-            "€ " + somOmzet.toFixed(2)
-        ]);
-
-        doc.autoTable({
-            head: [tableColumn],
-            body: tableRows,
-            startY: 50,
-            theme: 'grid',
-            headStyles: { fillColor: [0, 86, 179] }, 
-            footStyles: { fillColor: [233, 236, 239], textColor: [0,0,0], fontStyle: 'bold' },
-            didParseCell: function(data) {
-                if (data.row.index === tableRows.length - 1) {
-                    data.cell.styles.fontStyle = 'bold';
-                    data.cell.styles.fillColor = [230, 242, 255];
-                }
-            }
-        });
-
-        const bestandsNaam = `Weekoverzicht_week_${weekTekst}_${chauffeurNaam.replace(/\s+/g, '_')}.pdf`;
-        doc.save(bestandsNaam);
-    }
-
-    function openBewerkScherm(id) {
-        const rit = alleOpgeslagenRitten.find(r => r.id === id);
-        if (!rit) return; actieveBewerkId = id;
-        document.getElementById('editDatum').value = rit.datum; 
-        document.getElementById('editRitnummer').value = rit.rit_omschrijving || '';
-        document.getElementById('editStarttijd').value = rit.starttijd; 
-        document.getElementById('editEindtijd').value = rit.eindtijd;
-        document.getElementById('editPauze').value = rit.pauze_minuten;
-        document.getElementById('editStatus').value = rit.status || 'Te controleren';
-        document.getElementById('bewerkModal').style.display = 'flex';
-    }
-    function sluitBewerkScherm() { document.getElementById('bewerkModal').style.display = 'none'; actieveBewerkId = null; }
-    
-    document.getElementById('bewerkForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const updateData = { 
-            datum: document.getElementById('editDatum').value, 
-            rit_omschrijving: document.getElementById('editRitnummer').value, 
-            starttijd: document.getElementById('editStarttijd').value, 
-            eindtijd: document.getElementById('editEindtijd').value, 
-            pauze_minuten: document.getElementById('editPauze').value,
-            status: document.getElementById('editStatus').value
-        };
-        const { error } = await db.from('urenregistratie').update(updateData).eq('id', actieveBewerkId);
-        if (error) alert("Fout: " + error.message); else { sluitBewerkScherm(); laadDashboard(); }
-    });
-    
-    async function verwijderRit(id) { if (!confirm("Weet je zeker dat je deze rit wilt wissen?")) return; const { error } = await db.from('urenregistratie').delete().eq('id', id); if (error) alert("Fout: " + error.message); else laadDashboard(); }
-
-    checkLogin();
-</script>
-
-</body>
-</html>
+            const omzetNum = rit.totaal_facturatie_bedrag ? parseFloat(rit.totaal_facturatie_bed
